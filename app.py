@@ -2,6 +2,7 @@ import csv
 import io
 import streamlit as st
 from model import BUDGET, SEGMENTS, RESPONSES, calculate, totals
+import reporting
 
 st.set_page_config(page_title='STP Decision Lab', page_icon='👟', layout='wide')
 st.markdown('''<style>.block-container{max-width:1120px;padding-top:2rem}h1,h2,h3{color:#10233f}.stButton button{border-radius:8px}.note{padding:1rem;background:#e8f5ef;border-left:5px solid #1e7051;border-radius:5px}.card{padding:1rem;background:#eaf3f7;border-radius:8px;min-height:175px;margin-bottom:.7rem}</style>''', unsafe_allow_html=True)
@@ -85,6 +86,19 @@ if mode.startswith('Monday'):
                 summary=f'''STP DECISION LAB — FOUR-ROUND PAIR SUMMARY\nPair: {st.session_state.get('pair_names','') or 'Not provided'}\nAll figures are fictional teaching assumptions, not forecasts.\n\nROUND 1 — EXPLORE\nSegments compared: Performance runners; Eco-conscious buyers; Everyday comfort; Budget students.\nOur observations: {st.session_state.get('explore_note','') or 'Not provided'}\n\nROUND 2 — TARGET AND POSITION (saved when continuing)\n{describe(r2)}\nOur reasoning: {st.session_state.get('target_note','') or 'Not provided'}\n\nROUND 3 — TEST (saved before the challenge)\n{describe(base)}\nWhat we learned: {st.session_state.get('test_note','') or 'Not provided'}\n\nROUND 4 — RESPOND AND COMPARE (current choices)\nCompetitor: 25% modeled demand reduction in everyday comfort and budget students before response.\n{describe({'targets':targets,'position':position,'price':price,'allocations':allocations,'totals':t})}\nResponse: {response}\nReasoning, trade-off and uncertainty: {reason or 'Not provided'}\n\nComparison includes the event and any strategy changes. Contribution is not net profit; fixed costs, taxes, distribution and currency effects are excluded.\n'''
                 st.download_button('Download pair summary',summary,'stride-summary.txt','text/plain')
                 st.text_area('Copyable pair summary',summary,height=180)
+                st.subheader('Submit to your instructor')
+                st.caption('Your instructor can see your pair identifier, decisions, results and written reflections. Each submission creates a new record; if you submit again, tell your instructor which is final. Download a backup before leaving.')
+                if st.button('Submit pair results'):
+                    if not reporting.configured():
+                        st.error('Submission is not connected yet. Download your summary and ask your instructor how to submit it.')
+                    else:
+                        try:
+                            reporting.submit(st.session_state.get('pair_names',''),{'round2':r2,'round3':base,'final':{'targets':targets,'position':position,'price':price,'allocations':allocations,'response':response,'totals':t},'summary':summary})
+                            st.success('Your pair results were submitted.')
+                        except ValueError as exc:
+                            st.error(str(exc))
+                        except Exception:
+                            st.error('Submission failed. Download your summary and tell your instructor.')
                 st.write('**Debrief:** What did you change, why, and what real evidence might overturn your decision?')
         if n>1: st.button('Back',on_click=go,args=(n-1,))
     with st.expander('See the formulas and assumptions'):
