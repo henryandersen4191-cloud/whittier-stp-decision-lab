@@ -7,6 +7,7 @@ st.set_page_config(page_title='STP Decision Lab', page_icon='👟', layout='wide
 st.markdown('''<style>.block-container{max-width:1120px;padding-top:2rem}h1,h2,h3{color:#10233f}.stButton button{border-radius:8px}.note{padding:1rem;background:#e8f5ef;border-left:5px solid #1e7051;border-radius:5px}.card{padding:1rem;background:#eaf3f7;border-radius:8px;min-height:175px;margin-bottom:.7rem}</style>''', unsafe_allow_html=True)
 if 'round' not in st.session_state: st.session_state.round=1
 if 'baseline' not in st.session_state: st.session_state.baseline=None
+if 'round2_saved' not in st.session_state: st.session_state.round2_saved=None
 def reset():
     for key in list(st.session_state): del st.session_state[key]
 def go(n): st.session_state.round=n
@@ -32,6 +33,8 @@ if mode.startswith('Monday'):
         descriptions=['Wants running performance and is willing to pay for it.','Values environmental positioning; claims would need evidence.','Prioritizes versatile comfort for everyday use.','Looks for accessible prices; price-sensitive in this model.']
         for i,((name,s),desc) in enumerate(zip(SEGMENTS.items(),descriptions)):
             cols[i%2].markdown(f'<div class="card"><h3>{s["icon"]} {name}</h3>{desc}<br><br>Fictional potential buyers: {s["buyers"]:,}<br>Reference price: ${s["reference"]}</div>',unsafe_allow_html=True)
+        st.text_input('Pair names or identifier (optional)', key='pair_names')
+        st.text_area('Round 1: Which segment needs stood out, and why?',key='explore_note')
         st.button('Continue to targeting',on_click=go,args=(2,),type='primary')
     if n>=2:
         if n==2: st.header('2 · Choose your target and position')
@@ -58,9 +61,14 @@ if mode.startswith('Monday'):
             a,b,c=st.columns(3); a.metric('Pairs sold',f'{t["units"]:,}'); b.metric('Revenue',f'${t["revenue"]:,.0f}'); c.metric('Contribution after marketing',f'${t["contribution"]:,.0f}')
             st.caption('Contribution subtracts fictional $65 variable cost per pair, any response cost, and marketing. It is not net profit: fixed costs, taxes, distribution, and currency effects are excluded. Negative contribution is possible.')
             st.dataframe([{'Segment':r['segment'],'Marketing':r['spend'],'Pairs':r['units'],'Revenue':r['revenue'],'Contribution':r['contribution']} for r in rows],hide_index=True,use_container_width=True)
-            if n==2: st.button('Continue to testing',on_click=go,args=(3,),type='primary')
+            if n==2:
+                st.text_area('Round 2: Why did you choose this target and position?',key='target_note')
+                if st.button('Save choices and continue to testing',type='primary'):
+                    st.session_state.round2_saved={'targets':list(targets),'position':position,'price':price,'allocations':dict(allocations),'totals':t.copy()}
+                    go(3); st.rerun()
             if n==3:
                 st.info('Try a different price or allocation. How does additional reach compare with the marketing cost? Which segment-position fit is strongest?')
+                st.text_area('Round 3: What did you learn from testing?',key='test_note')
                 if st.button('Save strategy and reveal challenge',type='primary'):
                     st.session_state.baseline={'targets':list(targets),'position':position,'price':price,'allocations':dict(allocations),'totals':t.copy()}; go(4); st.rerun()
             if n==4 and st.session_state.baseline:
@@ -69,7 +77,12 @@ if mode.startswith('Monday'):
                 st.table([{'Measure':k.title(),'Saved before event':base['totals'][k],'Current after event':t[k]} for k in ('units','revenue','contribution','spend')])
                 st.caption('The comparison includes both the competitor event and any changes you make to strategy; it does not isolate their individual effects.')
                 reason=st.text_area('Pair reflection: Why this strategy? What trade-off and uncertainty matter most?',key='reason')
-                summary=f'''STP DECISION LAB — PAIR SUMMARY\nAll figures are fictional teaching assumptions.\n\nBefore challenge: {base['targets']}; {base['position']}; price ${base['price']}; allocation {base['allocations']}; results {base['totals']}\nAfter challenge: {targets}; {position}; price ${price}; allocation {allocations}; response {response}; results {t}\n\nOur reasoning and uncertainty: {reason}\nContribution is not net profit.\n'''
+                r2=st.session_state.round2_saved
+                def describe(s):
+                    if not s: return 'No saved choices.'
+                    v=s['totals']
+                    return f"Targets: {', '.join(s['targets'])}\nPosition: {s['position']} | Price: ${s['price']:,.0f}\nAllocations: {s['allocations']}\nEstimated pairs: {v['units']:,} | Revenue: ${v['revenue']:,.0f} | Contribution: ${v['contribution']:,.0f} | Marketing: ${v['spend']:,.0f}"
+                summary=f'''STP DECISION LAB — FOUR-ROUND PAIR SUMMARY\nPair: {st.session_state.get('pair_names','') or 'Not provided'}\nAll figures are fictional teaching assumptions, not forecasts.\n\nROUND 1 — EXPLORE\nSegments compared: Performance runners; Eco-conscious buyers; Everyday comfort; Budget students.\nOur observations: {st.session_state.get('explore_note','') or 'Not provided'}\n\nROUND 2 — TARGET AND POSITION (saved when continuing)\n{describe(r2)}\nOur reasoning: {st.session_state.get('target_note','') or 'Not provided'}\n\nROUND 3 — TEST (saved before the challenge)\n{describe(base)}\nWhat we learned: {st.session_state.get('test_note','') or 'Not provided'}\n\nROUND 4 — RESPOND AND COMPARE (current choices)\nCompetitor: 25% modeled demand reduction in everyday comfort and budget students before response.\n{describe({'targets':targets,'position':position,'price':price,'allocations':allocations,'totals':t})}\nResponse: {response}\nReasoning, trade-off and uncertainty: {reason or 'Not provided'}\n\nComparison includes the event and any strategy changes. Contribution is not net profit; fixed costs, taxes, distribution and currency effects are excluded.\n'''
                 st.download_button('Download pair summary',summary,'stride-summary.txt','text/plain')
                 st.text_area('Copyable pair summary',summary,height=180)
                 st.write('**Debrief:** What did you change, why, and what real evidence might overturn your decision?')
