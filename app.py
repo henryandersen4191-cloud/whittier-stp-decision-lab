@@ -9,6 +9,9 @@ st.markdown('''<style>.block-container{max-width:1120px;padding-top:2rem}h1,h2,h
 if 'round' not in st.session_state: st.session_state.round=1
 if 'baseline' not in st.session_state: st.session_state.baseline=None
 if 'round2_saved' not in st.session_state: st.session_state.round2_saved=None
+for key in ('pair_names', 'explore_note', 'target_note', 'test_note'):
+    if key in st.session_state:
+        st.session_state[key] = st.session_state[key]
 def reset():
     for key in list(st.session_state): del st.session_state[key]
 def go(n): st.session_state.round=n
